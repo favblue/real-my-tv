@@ -135,10 +135,7 @@ class SettingFragment : Fragment() {
             mainActivity.settingActive()
         }
 
-        binding.checkVersion.setOnClickListener {
-            requestInstallPermissions()
-            mainActivity.settingActive()
-        }
+        
 
         binding.confirmConfig.setOnClickListener {
             val sourcesFragment = SourcesFragment()
@@ -147,16 +144,7 @@ class SettingFragment : Fragment() {
             mainActivity.settingActive()
         }
 
-        binding.appreciate.setOnClickListener {
-            val imageModalFragment = ModalFragment()
-
-            val args = Bundle()
-            args.putInt(ModalFragment.KEY_DRAWABLE_ID, R.drawable.appreciate)
-            imageModalFragment.arguments = args
-
-            imageModalFragment.show(requireFragmentManager(), ModalFragment.TAG)
-            mainActivity.settingActive()
-        }
+        
 
         binding.setting.setOnClickListener {
             hideSelf()
@@ -197,10 +185,10 @@ class SettingFragment : Fragment() {
         for (i in listOf(
             binding.remoteSettings,
             binding.confirmConfig,
-            binding.clear,
-            binding.checkVersion,
+            
+            
             binding.exit,
-            binding.appreciate,
+            
         )) {
             i.layoutParams.width = btnWidth
             i.textSize = txtTextSize
@@ -296,65 +284,7 @@ class SettingFragment : Fragment() {
             viewModel.setDisplaySeconds(isChecked)
         }
 
-        binding.clear.setOnClickListener {
-            SP.channelNum = SP.DEFAULT_CHANNEL_NUM
-
-            SP.sources = SP.DEFAULT_SOURCES
-            Log.i(TAG, "DEFAULT_SOURCES ${SP.DEFAULT_SOURCES}")
-            viewModel.sources.init()
-
-            SP.channelReversal = SP.DEFAULT_CHANNEL_REVERSAL
-            SP.time = SP.DEFAULT_TIME
-            SP.bootStartup = SP.DEFAULT_BOOT_STARTUP
-            SP.repeatInfo = SP.DEFAULT_REPEAT_INFO
-            SP.configAutoLoad = SP.DEFAULT_CONFIG_AUTO_LOAD
-            SP.proxy = SP.DEFAULT_PROXY
-
-            imageHelper.clearImage()
-
-            // TODO update player
-            SP.softDecode = SP.DEFAULT_SOFT_DECODE
-
-            SP.configUrl = SP.DEFAULT_CONFIG_URL
-            Log.i(TAG, "config url: ${SP.configUrl}")
-            context.deleteFile(CACHE_FILE_NAME)
-            viewModel.reset(context)
-            confirmConfig()
-
-            SP.channel = SP.DEFAULT_CHANNEL
-            Log.i(TAG, "default channel: ${SP.channel}")
-            confirmChannel()
-
-            SP.deleteLike()
-            Log.i(TAG, "clear like")
-
-//            SP.positionGroup = SP.DEFAULT_POSITION_GROUP
-//            viewModel.groupModel.setPosition(SP.DEFAULT_POSITION_GROUP)
-//            viewModel.groupModel.setPositionPlaying(SP.DEFAULT_POSITION_GROUP)
-
-            SP.positionGroup = viewModel.groupModel.defaultPosition()
-            viewModel.groupModel.initPosition()
-
-            SP.position = SP.DEFAULT_POSITION
-            Log.i(TAG, "list position: ${SP.position}")
-            val tvListModel = viewModel.groupModel.getCurrentList()
-            tvListModel?.setPosition(SP.DEFAULT_POSITION)
-            tvListModel?.setPositionPlaying(SP.DEFAULT_POSITION)
-
-            viewModel.groupModel.setPositionPlaying()
-            viewModel.groupModel.getCurrentList()?.setPositionPlaying()
-            viewModel.groupModel.getCurrent()?.setReady()
-
-            SP.showAllChannels = SP.DEFAULT_SHOW_ALL_CHANNELS
-            SP.compactMenu = SP.DEFAULT_COMPACT_MENU
-
-            viewModel.setDisplaySeconds(SP.DEFAULT_DISPLAY_SECONDS)
-
-            SP.epg = SP.DEFAULT_EPG
-            viewModel.updateEPG()
-
-            R.string.config_restored.showToast()
-        }
+        
 
         binding.switchShowAllChannels.setOnCheckedChangeListener { _, isChecked ->
             SP.showAllChannels = isChecked

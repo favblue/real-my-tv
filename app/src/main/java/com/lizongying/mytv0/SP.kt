@@ -64,7 +64,7 @@ object SP {
     const val DEFAULT_CHANNEL_NUM = false
     const val DEFAULT_TIME = true
     const val DEFAULT_BOOT_STARTUP = false
-    const val DEFAULT_CONFIG_URL = "https://live.fanmingming.com/tv/m3u/index.m3u"
+    const val DEFAULT_CONFIG_URL = "https://raw.githubusercontent.com/best-fan/iptv-sources/main/cn_cctv.m3u8"
     const val DEFAULT_PROXY = ""
     const val DEFAULT_EPG =
         "https://live.fanmingming.cn/e.xml,https://raw.githubusercontent.com/fanmingming/live/main/e.xml"
