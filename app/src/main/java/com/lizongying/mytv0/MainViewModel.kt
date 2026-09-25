@@ -131,6 +131,8 @@ class MainViewModel : ViewModel() {
             cacheChannels = defaultChannels
             cacheFile!!.writeText(defaultChannels)
             SP.channelsVersion = CURRENT_CHANNELS_VERSION
+            SP.sources = SP.DEFAULT_SOURCES
+            SP.configUrl = SP.DEFAULT_CONFIG_URL
         }
 
         Log.i(TAG, "cacheChannels $cacheFile length: ${cacheChannels.length}")
@@ -617,7 +619,7 @@ class MainViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "MainViewModel"
-        const val CURRENT_CHANNELS_VERSION = 91
+        const val CURRENT_CHANNELS_VERSION = 92
         const val CACHE_FILE_NAME = "channels.txt"
         const val CACHE_EPG = "epg.xml"
         val DEFAULT_CHANNELS_FILE = R.raw.channels
