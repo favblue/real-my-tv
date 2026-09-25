@@ -121,7 +121,7 @@ class MainViewModel : ViewModel() {
                 .use { it.readText() }
 
         val g = Gua()
-        if (SP.configUrl.isEmpty() || cacheChannels.isEmpty() || g.verify(cacheChannels)) {
+        if (SP.configUrl.isNullOrEmpty() || cacheChannels.isEmpty() || g.verify(cacheChannels)) {
             Log.i(TAG, "Load latest default channels into cache")
             cacheChannels = defaultChannels
             cacheFile!!.writeText(defaultChannels)
