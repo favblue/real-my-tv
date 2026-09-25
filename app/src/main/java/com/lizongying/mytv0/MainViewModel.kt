@@ -385,6 +385,18 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    private fun str2Channels(str: String): Boolean {
+        var string = str
+        if (initialized && string == cacheChannels) {
+            Log.w(TAG, "same channels")
+            return true
+        }
+
+        val g = Gua()
+        if (g.verify(str)) {
+            string = g.decode(str)
+        }
+
         val cleanStr = string.trim().removePrefix("\uFEFF")
         if (cleanStr.isEmpty()) {
             Log.w(TAG, "channels is empty")
