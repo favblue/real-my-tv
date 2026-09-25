@@ -121,8 +121,7 @@ class MainViewModel : ViewModel() {
                 .use { it.readText() }
 
         val g = Gua()
-        val needRefreshDefault = SP.configUrl.isNullOrEmpty() && (
-            cacheChannels.isEmpty() ||
+        val needRefreshDefault = (cacheChannels.isEmpty() ||
             g.verify(cacheChannels) ||
             SP.channelsVersion != CURRENT_CHANNELS_VERSION
         )
@@ -618,7 +617,7 @@ class MainViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "MainViewModel"
-        const val CURRENT_CHANNELS_VERSION = 90
+        const val CURRENT_CHANNELS_VERSION = 91
         const val CACHE_FILE_NAME = "channels.txt"
         const val CACHE_EPG = "epg.xml"
         val DEFAULT_CHANNELS_FILE = R.raw.channels
