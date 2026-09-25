@@ -4,21 +4,27 @@
     android:id="@+id/error"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black"
+    android:background="@android:color/transparent"
     >
 
     <LinearLayout
         android:id="@+id/main"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/rounded_dark_bottom"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="20dp"
         android:gravity="center"
-        android:orientation="vertical" >
+        android:orientation="vertical">
 
         <androidx.appcompat.widget.AppCompatImageView
             android:id="@+id/logo"
             android:src="@drawable/baseline_sentiment_dissatisfied_24"
-            android:layout_width="50dp"
-            android:layout_height="50dp" />
+            android:layout_width="48dp"
+            android:layout_height="48dp" />
 
         <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/msg"
@@ -27,6 +33,15 @@
             android:layout_marginTop="8dp"
             android:textColor="@color/white"
             tools:text="Message"
-            android:textSize="20sp" />
+            android:textSize="18sp" />
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/submsg"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/description_blur"
+            android:text="按【上/下键】换台，按【确定键】选台"
+            android:textSize="14sp" />
     </LinearLayout>
 </FrameLayout>

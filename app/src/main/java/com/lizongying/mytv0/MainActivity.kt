@@ -225,34 +225,45 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var consecutiveErrors = 0
+    private val autoNextChannelRunnable = Runnable {
+        if (consecutiveErrors < 8) {
+            consecutiveErrors++
+            Log.i(TAG, "Auto switching to next channel (consecutive error: $consecutiveErrors)")
+            next()
+        } else {
+            Log.w(TAG, "Too many consecutive playback errors, stopping auto-switch")
+            errorFragment.setMsg("当前网络或直播源不可用\n按【确定】选台，按【菜单】设置")
+        }
+    }
+
     private fun watch() {
         viewModel.listModel.forEach { tvModel ->
             tvModel.errInfo.observe(this) { _ ->
-
-                if (tvModel.errInfo.value != null
-//                    && tvModel.tv.id == TVList.positionValue
-                ) {
+                val currentTVModel = viewModel.groupModel.getCurrent()
+                if (tvModel.errInfo.value != null && currentTVModel?.tv?.id == tvModel.tv.id) {
                     hideFragment(loadingFragment)
                     if (tvModel.errInfo.value == "") {
                         Log.i(TAG, "${tvModel.tv.title} playing")
+                        handler.removeCallbacks(autoNextChannelRunnable)
+                        consecutiveErrors = 0
                         hideFragment(errorFragment)
                         showFragment(playerFragment)
                     } else {
                         Log.i(TAG, "${tvModel.tv.title} ${tvModel.errInfo.value.toString()}")
-                        hideFragment(playerFragment)
-                        errorFragment.setMsg(tvModel.errInfo.value.toString())
+                        errorFragment.setMsg("${tvModel.tv.title} 播放失败，3秒后自动跳台...")
                         showFragment(errorFragment)
+                        handler.removeCallbacks(autoNextChannelRunnable)
+                        handler.postDelayed(autoNextChannelRunnable, 3000L)
                     }
                 }
             }
 
             tvModel.ready.observe(this) { _ ->
-
-                // not first time && channel is not changed
-                if (tvModel.ready.value != null
-//                    && tvModel.tv.id == TVList.positionValue
-                ) {
+                val currentTVModel = viewModel.groupModel.getCurrent()
+                if (tvModel.ready.value != null && currentTVModel?.tv?.id == tvModel.tv.id) {
                     Log.i(TAG, "${tvModel.tv.title} 嘗試播放")
+                    handler.removeCallbacks(autoNextChannelRunnable)
                     hideFragment(errorFragment)
                     showFragment(loadingFragment)
                     playerFragment.play(tvModel)
@@ -434,6 +445,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun play(position: Int): Boolean {
+        handler.removeCallbacks(autoNextChannelRunnable)
+        hideFragment(errorFragment)
         return if (position > -1 && position < viewModel.groupModel.getAllList()!!.size()) {
             val prevGroup = viewModel.groupModel.positionValue
             val tvModel = viewModel.groupModel.getPosition(position)
@@ -454,6 +467,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun prev() {
+        handler.removeCallbacks(autoNextChannelRunnable)
+        hideFragment(errorFragment)
         val prevGroup = viewModel.groupModel.positionValue
         val tvModel =
             if (SP.defaultLike && viewModel.groupModel.isInLikeMode && viewModel.groupModel.getFavoritesList() != null
@@ -474,6 +489,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun next() {
+        handler.removeCallbacks(autoNextChannelRunnable)
+        hideFragment(errorFragment)
         val prevGroup = viewModel.groupModel.positionValue
         val tvModel =
             if (SP.defaultLike && viewModel.groupModel.isInLikeMode && viewModel.groupModel.getFavoritesList() != null
@@ -722,6 +739,13 @@ class MainActivity : AppCompatActivity() {
 
     fun onKey(keyCode: Int): Boolean {
         Log.d(TAG, "keyCode $keyCode")
+        handler.removeCallbacks(autoNextChannelRunnable)
+        if (errorFragment.isAdded && !errorFragment.isHidden &&
+            (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+             keyCode == KeyEvent.KEYCODE_CHANNEL_UP || keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN ||
+             keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_DPAD_CENTER)) {
+            hideFragment(errorFragment)
+        }
         when (keyCode) {
             KeyEvent.KEYCODE_0,
             KeyEvent.KEYCODE_1,
@@ -842,6 +866,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        handler.removeCallbacks(autoNextChannelRunnable)
         server?.stop()
     }
 

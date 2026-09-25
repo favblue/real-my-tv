@@ -216,4 +216,10 @@ object SP {
     var sources: String?
         get() = sp.getString(KEY_SOURCES, DEFAULT_SOURCES)
         set(value) = sp.edit().putString(KEY_SOURCES, value).apply()
+
+    private const val KEY_CHANNELS_VERSION = "channels_version"
+
+    var channelsVersion: Int
+        get() = sp.getInt(KEY_CHANNELS_VERSION, 0)
+        set(value) = sp.edit().putInt(KEY_CHANNELS_VERSION, value).apply()
 }

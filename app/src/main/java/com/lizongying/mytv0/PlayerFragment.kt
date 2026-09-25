@@ -36,7 +36,7 @@ class PlayerFragment : Fragment() {
     private var tvModel: TVModel? = null
     private val aspectRatio = 16f / 9f
 
-    private val handler = Handler(Looper.myLooper()!!)
+    private val handler = Handler(Looper.getMainLooper())
     private val delayHideVolume = 2 * 1000L
 
     override fun onCreateView(
@@ -54,7 +54,7 @@ class PlayerFragment : Fragment() {
     }
 
     private val bufferingTimeoutRunnable = Runnable {
-        Log.w(TAG, "Buffering timeout (8s), auto retrying or switching source...")
+        Log.w(TAG, "Buffering timeout (6s), auto retrying or switching source...")
         retryOrNextVideo("BufferingTimeout")
     }
 
@@ -190,7 +190,14 @@ class PlayerFragment : Fragment() {
             override fun onPlayerError(error: PlaybackException) {
                 super.onPlayerError(error)
                 Log.e(TAG, "onPlayerError: ${error.errorCodeName}(${error.errorCode}): ${error.message}")
-                retryOrNextVideo("PlayerError")
+                if (tvModel != null && !tvModel!!.isLastVideo()) {
+                    Log.i(TAG, "[onPlayerError] Fast-forward to next video URL")
+                    tvModel!!.nextVideo()
+                    tvModel!!.setReady(true)
+                    tvModel!!.retryTimes = 0
+                } else {
+                    retryOrNextVideo("PlayerError")
+                }
             }
         })
 

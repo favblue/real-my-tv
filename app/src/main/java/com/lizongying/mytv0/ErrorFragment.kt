@@ -28,13 +28,9 @@ class ErrorFragment : Fragment() {
         binding.msg.layoutParams = layoutParams
 
         binding.msg.textSize = application.px2PxFont(binding.msg.textSize)
+        binding.submsg.textSize = application.px2PxFont(binding.submsg.textSize)
 
-        _binding = ErrorBinding.inflate(inflater, container, false)
         return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
     }
 
     fun setMsg(msg: String) {

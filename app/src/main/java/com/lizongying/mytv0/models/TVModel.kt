@@ -224,6 +224,7 @@ class TVModel(var tv: TV) : ViewModel() {
         }
 
         _videoIndex.value = (videoIndexValue + 1) % tv.uris.size
+        sourceTypeIndex = 0
         sourceTypeList = listOf(
             SourceType.UNKNOWN,
         )

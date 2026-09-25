@@ -121,10 +121,17 @@ class MainViewModel : ViewModel() {
                 .use { it.readText() }
 
         val g = Gua()
-        if (SP.configUrl.isNullOrEmpty() || cacheChannels.isEmpty() || g.verify(cacheChannels)) {
-            Log.i(TAG, "Load latest default channels into cache")
+        val needRefreshDefault = SP.configUrl.isNullOrEmpty() && (
+            cacheChannels.isEmpty() ||
+            g.verify(cacheChannels) ||
+            SP.channelsVersion < CURRENT_CHANNELS_VERSION
+        )
+
+        if (needRefreshDefault) {
+            Log.i(TAG, "Load latest default channels (v$CURRENT_CHANNELS_VERSION) into cache")
             cacheChannels = defaultChannels
             cacheFile!!.writeText(defaultChannels)
+            SP.channelsVersion = CURRENT_CHANNELS_VERSION
         }
 
         Log.i(TAG, "cacheChannels $cacheFile length: ${cacheChannels.length}")
@@ -466,11 +473,12 @@ class MainViewModel : ViewModel() {
                             }
                         }
                     } else if (!trimmedLine.startsWith("#")) {
+                        val subUris = trimmedLine.split('#').map { it.trim() }.filter { it.isNotBlank() }
                         tv.uris = if (tv.uris.isEmpty()) {
-                            listOf(trimmedLine)
+                            subUris
                         } else {
                             tv.uris.toMutableList().apply {
-                                this.add(trimmedLine)
+                                this.addAll(subUris)
                             }
                         }
                     }
@@ -519,7 +527,7 @@ class MainViewModel : ViewModel() {
                             }
                             val arr = trimmedLine.split(',').map { it.trim() }
                             val title = arr.first().trim()
-                            val uris = arr.drop(1).filter { it.isNotBlank() }
+                            val uris = arr.drop(1).flatMap { it.split('#') }.map { it.trim() }.filter { it.isNotBlank() }
 
                             val key = (if (group.isEmpty()) "其他" else group) + "_" + title
                             if (!tvMap.containsKey(key)) {
@@ -610,6 +618,7 @@ class MainViewModel : ViewModel() {
 
     companion object {
         private const val TAG = "MainViewModel"
+        const val CURRENT_CHANNELS_VERSION = 144
         const val CACHE_FILE_NAME = "channels.txt"
         const val CACHE_EPG = "epg.xml"
         val DEFAULT_CHANNELS_FILE = R.raw.channels
