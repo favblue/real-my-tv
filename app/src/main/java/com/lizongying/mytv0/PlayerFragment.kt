@@ -17,6 +17,7 @@ import androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
@@ -52,6 +53,44 @@ class PlayerFragment : Fragment() {
         (activity as MainActivity).ready(TAG)
     }
 
+    private val bufferingTimeoutRunnable = Runnable {
+        Log.w(TAG, "Buffering timeout (8s), auto retrying or switching source...")
+        retryOrNextVideo("BufferingTimeout")
+    }
+
+    private fun retryOrNextVideo(reason: String) {
+        if (tvModel == null) {
+            Log.e(TAG, "tvModel == null, cannot retry ($reason)")
+            return
+        }
+        val tv = tvModel!!
+        handler.removeCallbacks(bufferingTimeoutRunnable)
+        if (tv.retryTimes < tv.retryMaxTimes) {
+            var last = true
+            if (tv.getSourceTypeDefault() == SourceType.UNKNOWN) {
+                last = tv.nextSourceType()
+            }
+            tv.setReady(true)
+            if (last) {
+                tv.retryTimes++
+            }
+            Log.i(
+                TAG,
+                "[$reason] retry ${tv.videoIndex.value} ${tv.getSourceTypeCurrent()} ${tv.retryTimes}/${tv.retryMaxTimes}"
+            )
+        } else {
+            if (!tv.isLastVideo()) {
+                Log.i(TAG, "[$reason] switch to next video url")
+                tv.nextVideo()
+                tv.setReady(true)
+                tv.retryTimes = 0
+            } else {
+                Log.w(TAG, "[$reason] all sources failed")
+                tv.setErrInfo(R.string.play_error.getString())
+            }
+        }
+    }
+
     @OptIn(UnstableApi::class)
     fun updatePlayer() {
         if (context == null) {
@@ -70,12 +109,24 @@ class PlayerFragment : Fragment() {
             if (SP.softDecode) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER else DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
         )
 
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15_000,
+                30_000,
+                1_000,
+                2_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
         if (player != null) {
+            handler.removeCallbacks(bufferingTimeoutRunnable)
             player?.release()
         }
 
         player = ExoPlayer.Builder(ctx)
             .setRenderersFactory(renderersFactory)
+            .setLoadControl(loadControl)
             .build()
         player?.repeatMode = REPEAT_MODE_ALL
         player?.playWhenReady = true
@@ -94,6 +145,16 @@ class PlayerFragment : Fragment() {
                 }
             }
 
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                super.onPlaybackStateChanged(playbackState)
+                if (playbackState == Player.STATE_BUFFERING) {
+                    handler.removeCallbacks(bufferingTimeoutRunnable)
+                    handler.postDelayed(bufferingTimeoutRunnable, 8_000L)
+                } else {
+                    handler.removeCallbacks(bufferingTimeoutRunnable)
+                }
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
 
@@ -105,6 +166,7 @@ class PlayerFragment : Fragment() {
                 val tv = tvModel!!
 
                 if (isPlaying) {
+                    handler.removeCallbacks(bufferingTimeoutRunnable)
                     tv.confirmSourceType()
                     tv.confirmVideoIndex()
                     tv.setErrInfo("")
@@ -127,36 +189,8 @@ class PlayerFragment : Fragment() {
 
             override fun onPlayerError(error: PlaybackException) {
                 super.onPlayerError(error)
-
-                if (tvModel == null) {
-                    Log.e(TAG, "tvModel == null")
-                    return
-                }
-
-                val tv = tvModel!!
-
-                if (tv.retryTimes < tv.retryMaxTimes) {
-                    var last = true
-                    if (tv.getSourceTypeDefault() == SourceType.UNKNOWN) {
-                        last = tv.nextSourceType()
-                    }
-                    tv.setReady(true)
-                    if (last) {
-                        tv.retryTimes++
-                    }
-                    Log.i(
-                        TAG,
-                        "retry ${tv.videoIndex.value} ${tv.getSourceTypeCurrent()} ${tv.retryTimes}/${tv.retryMaxTimes}"
-                    )
-                } else {
-                    if (!tv.isLastVideo()) {
-                        tv.nextVideo()
-                        tv.setReady(true)
-                        tv.retryTimes = 0
-                    } else {
-                        tv.setErrInfo(R.string.play_error.getString())
-                    }
-                }
+                Log.e(TAG, "onPlayerError: ${error.errorCodeName}(${error.errorCode}): ${error.message}")
+                retryOrNextVideo("PlayerError")
             }
         })
 
@@ -169,6 +203,7 @@ class PlayerFragment : Fragment() {
     @OptIn(UnstableApi::class)
     fun play(tvModel: TVModel) {
         this.tvModel = tvModel
+        handler.removeCallbacks(bufferingTimeoutRunnable)
         player?.run {
             tvModel.getVideoUrl() ?: return
 
@@ -207,16 +242,13 @@ class PlayerFragment : Fragment() {
                 requiresSecureDecoder,
                 requiresTunnelingDecoder
             )
-            if (mimeType == MimeTypes.VIDEO_H265 && !requiresSecureDecoder && !requiresTunnelingDecoder) {
-                if (infos.isNotEmpty()) {
-                    val infosNew = infos.find { it.name == "c2.android.hevc.decoder" }
-                        ?.let { mutableListOf(it) }
-                    if (infosNew != null) {
-                        return infosNew
-                    }
-                }
-            }
-            return infos
+            // 优先选择硬件加速解码器（排除软件解码器 softwareOnly 以及系统自带的低性能 Google 纯软解）
+            return infos.sortedWith(
+                compareBy(
+                    { it.softwareOnly },
+                    { it.name.startsWith("c2.android") || it.name.startsWith("OMX.google") }
+                )
+            ).toMutableList()
         }
     }
 
@@ -270,6 +302,7 @@ class PlayerFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        handler.removeCallbacks(bufferingTimeoutRunnable)
         if (player?.isPlaying == true) {
             player?.stop()
         }
@@ -277,11 +310,13 @@ class PlayerFragment : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
+        handler.removeCallbacks(bufferingTimeoutRunnable)
         player?.release()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        handler.removeCallbacks(bufferingTimeoutRunnable)
         _binding = null
     }
 

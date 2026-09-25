@@ -25,7 +25,7 @@ import kotlin.math.min
 
 class TVModel(var tv: TV) : ViewModel() {
     var retryTimes = 0
-    var retryMaxTimes = 10
+    var retryMaxTimes = 2
     var programUpdateTime = 0L
 
     private var _groupIndex = 0
@@ -189,7 +189,9 @@ class TVModel(var tv: TV) : ViewModel() {
         val httpDataSource = _httpDataSource!!
 
         return when (getSourceTypeCurrent()) {
-            SourceType.HLS -> HlsMediaSource.Factory(httpDataSource).createMediaSource(mediaItem)
+            SourceType.HLS -> HlsMediaSource.Factory(httpDataSource)
+                .setAllowChunklessPreparation(true)
+                .createMediaSource(mediaItem)
             SourceType.RTSP -> if (userAgent.isEmpty()) {
                 RtspMediaSource.Factory().createMediaSource(mediaItem)
             } else {
