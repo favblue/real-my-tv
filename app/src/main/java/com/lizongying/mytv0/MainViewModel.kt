@@ -116,14 +116,18 @@ class MainViewModel : ViewModel() {
 
         cacheChannels = getCache()
 
-        if (cacheChannels.isEmpty()) {
-            Log.i(TAG, "cacheChannels isEmpty")
-            cacheChannels =
-                context.resources.openRawResource(DEFAULT_CHANNELS_FILE).bufferedReader()
-                    .use { it.readText() }
+        val defaultChannels =
+            context.resources.openRawResource(DEFAULT_CHANNELS_FILE).bufferedReader()
+                .use { it.readText() }
+
+        val g = Gua()
+        if (SP.configUrl.isEmpty() || cacheChannels.isEmpty() || g.verify(cacheChannels)) {
+            Log.i(TAG, "Load latest default channels into cache")
+            cacheChannels = defaultChannels
+            cacheFile!!.writeText(defaultChannels)
         }
 
-        Log.i(TAG, "cacheChannels $cacheFile $cacheChannels")
+        Log.i(TAG, "cacheChannels $cacheFile length: ${cacheChannels.length}")
 
         try {
             str2Channels(cacheChannels)
@@ -281,6 +285,12 @@ class MainViewModel : ViewModel() {
 
                     if (response.isSuccessful) {
                         val str = response.bodyAlias()?.string() ?: ""
+                        val check = str.trim().lowercase()
+                        if (check.startsWith("<!doctype") || check.startsWith("<html")) {
+                            Log.w(TAG, "Response is HTML, likely proxy interception: $a")
+                            err = R.string.channel_format_error
+                            return@withContext
+                        }
                         withContext(Dispatchers.Main) {
                             tryStr2Channels(str, null, b, id)
                         }
@@ -375,34 +385,23 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun str2Channels(str: String): Boolean {
-        var string = str
-        if (initialized && string == cacheChannels) {
-            Log.w(TAG, "same channels")
-            return true
-        }
-
-        val g = Gua()
-        if (g.verify(str)) {
-            string = g.decode(str)
-        }
-
-        if (string.isEmpty()) {
+        val cleanStr = string.trim().removePrefix("\uFEFF")
+        if (cleanStr.isEmpty()) {
             Log.w(TAG, "channels is empty")
             return false
         }
 
-        if (initialized && string == cacheChannels) {
+        if (initialized && cleanStr == cacheChannels) {
             Log.w(TAG, "same channels")
             return true
         }
 
         val list: List<TV>
 
-        when (string[0]) {
-            '[' -> {
+        when {
+            cleanStr.startsWith("[") -> {
                 try {
-                    list = gson.fromJson(string, typeTvList)
+                    list = gson.fromJson(cleanStr, typeTvList)
                     Log.i(TAG, "导入频道 ${list.size} $list")
                 } catch (e: Exception) {
                     Log.e(TAG, "str2Channels", e)
@@ -410,8 +409,8 @@ class MainViewModel : ViewModel() {
                 }
             }
 
-            '#' -> {
-                val lines = string.lines()
+            cleanStr.startsWith("#") -> {
+                val lines = cleanStr.lines()
                 val nameRegex = Regex("""tvg-name="([^"]+)"""")
                 val logRegex = Regex("""tvg-logo="([^"]+)"""")
                 val numRegex = Regex("""tvg-chno="([^"]+)"""")
@@ -430,20 +429,18 @@ class MainViewModel : ViewModel() {
                     if (trimmedLine.startsWith("#EXTM3U")) {
                         epgUrl = epgRegex.find(trimmedLine)?.groupValues?.get(1)?.trim()
                     } else if (trimmedLine.startsWith("#EXTINF")) {
-                        val key = tv.group + tv.name
-                        if (key.isNotEmpty()) {
-                            tvMap[key] =
-                                if (!tvMap.containsKey(key)) listOf(tv) else tvMap[key]!! + tv
+                        val key = (tv.group.ifEmpty { "其他" }) + "_" + (tv.name.ifEmpty { tv.title })
+                        if (tv.title.isNotEmpty() || tv.uris.isNotEmpty()) {
+                            tvMap[key] = if (!tvMap.containsKey(key)) listOf(tv) else tvMap[key]!! + tv
                         }
                         tv = TV()
-                        val info = trimmedLine.split(",")
+                        val info = trimmedLine.split(",", limit = 2)
                         tv.title = info.last().trim()
-                        var name = nameRegex.find(info.first())?.groupValues?.get(1)?.trim()
+                        val name = nameRegex.find(info.first())?.groupValues?.get(1)?.trim()
                         tv.name = if (name.isNullOrEmpty()) tv.title else name
                         tv.logo = logRegex.find(info.first())?.groupValues?.get(1)?.trim() ?: ""
-                        tv.number =
-                            numRegex.find(info.first())?.groupValues?.get(1)?.trim()?.toInt() ?: -1
-                        tv.group = groupRegex.find(info.first())?.groupValues?.get(1)?.trim() ?: ""
+                        tv.number = numRegex.find(info.first())?.groupValues?.get(1)?.trim()?.toIntOrNull() ?: -1
+                        tv.group = groupRegex.find(info.first())?.groupValues?.get(1)?.trim() ?: "其他频道"
                     } else if (trimmedLine.startsWith("#EXTVLCOPT:http-")) {
                         val keyValue =
                             trimmedLine.substringAfter("#EXTVLCOPT:http-").split("=", limit = 2)
@@ -466,13 +463,13 @@ class MainViewModel : ViewModel() {
                         }
                     }
                 }
-                val key = tv.group + tv.name
-                if (key.isNotEmpty()) {
+                val key = (tv.group.ifEmpty { "其他" }) + "_" + (tv.name.ifEmpty { tv.title })
+                if (tv.title.isNotEmpty() || tv.uris.isNotEmpty()) {
                     tvMap[key] = if (!tvMap.containsKey(key)) listOf(tv) else tvMap[key]!! + tv
                 }
-                for ((_, tv) in tvMap) {
-                    val uris = tv.map { t -> t.uris }.flatten()
-                    val t0 = tv[0]
+                for ((_, tvList) in tvMap) {
+                    val uris = tvList.map { t -> t.uris }.flatten().filter { it.isNotBlank() }
+                    val t0 = tvList[0]
                     val t1 = TV(
                         -1,
                         t0.name,
@@ -491,11 +488,11 @@ class MainViewModel : ViewModel() {
                     l.add(t1)
                 }
                 list = l
-                Log.i(TAG, "导入频道 ${list.size} $list")
+                Log.i(TAG, "导入频道 ${list.size}")
             }
 
             else -> {
-                val lines = string.lines()
+                val lines = cleanStr.lines()
                 var group = ""
                 val l = mutableListOf<TV>()
                 val tvMap = mutableMapOf<String, List<String>>()
@@ -510,27 +507,28 @@ class MainViewModel : ViewModel() {
                             }
                             val arr = trimmedLine.split(',').map { it.trim() }
                             val title = arr.first().trim()
-                            val uris = arr.drop(1)
+                            val uris = arr.drop(1).filter { it.isNotBlank() }
 
-                            val key = group + title
+                            val key = (if (group.isEmpty()) "其他" else group) + "_" + title
                             if (!tvMap.containsKey(key)) {
-                                tvMap[key] = listOf(group)
+                                tvMap[key] = listOf(group.ifEmpty { "其他" })
                             }
                             tvMap[key] = tvMap[key]!! + uris
                         }
                     }
                 }
-                for ((title, uris) in tvMap) {
-                    val channelGroup = uris.first();
-                    uris.drop(1);
+                for ((key, uris) in tvMap) {
+                    val channelGroup = uris.first()
+                    val realUris = uris.drop(1).filter { it.isNotBlank() }
+                    val title = key.substringAfter("${channelGroup}_")
                     val tv = TV(
                         -1,
                         "",
-                        title.removePrefix(channelGroup),
+                        title,
                         "",
                         "",
                         "",
-                        uris,
+                        realUris,
                         0,
                         emptyMap(),
                         channelGroup,
@@ -545,6 +543,11 @@ class MainViewModel : ViewModel() {
                 Log.d(TAG, "导入频道 $list")
                 Log.i(TAG, "导入频道 ${list.size}")
             }
+        }
+
+        if (list.isEmpty()) {
+            Log.w(TAG, "channels list is empty")
+            return false
         }
 
         groupModel.initTVGroup()

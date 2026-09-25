@@ -163,26 +163,17 @@ object Utils {
     }
 
     fun getUrls(url: String): List<String> {
-        return if (url.startsWith("https://raw.githubusercontent.com") || url.startsWith("https://github.com")) {
+        val trimmed = url.trim()
+        return if (trimmed.startsWith("https://raw.githubusercontent.com") || trimmed.startsWith("https://github.com")) {
             listOf(
-                "https://gh.llkk.cc/",
-                "https://github.moeyy.xyz/",
-                "https://mirror.ghproxy.com/",
-                "https://ghproxy.cn/",
-                "https://ghproxy.net/",
-                "https://ghproxy.click/",
-                "https://ghproxy.com/",
-                "https://github.moeyy.cn/",
-                "https://gh-proxy.llyke.com/",
-                "https://www.ghproxy.cc/",
-                "https://cf.ghproxy.cc/",
-                "https://ghp.ci/",
-                "https://ghfast.top"
-            ).map {
-                "$it$url"
-            }
+                trimmed,
+                "https://gh-proxy.org/$trimmed",
+                "https://mirror.ghproxy.com/$trimmed",
+                "https://ghproxy.net/$trimmed",
+                "https://github.moeyy.xyz/$trimmed"
+            )
         } else {
-            listOf(url)
+            listOf(trimmed)
         }
     }
 }
