@@ -1,3 +1,4 @@
+https://cdn.jsdelivr.net/gh/best-fan/iptv-sources@main/cn_cctv.m3u8
 https://raw.githubusercontent.com/best-fan/iptv-sources/main/cn_cctv.m3u8
 https://iptv.burningc4.com/TV-IPV4.m3u
 https://live.fanmingming.com/tv/m3u/index.m3u
